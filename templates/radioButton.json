@@ -1,0 +1,41 @@
+{
+	"blocks": [
+		{
+			"type": "section",
+			"text": {
+				"type": "mrkdwn",
+				"text": "Titulo de la encuesta"
+			},
+			"accessory": {
+				"type": "radio_buttons",
+				"options": [
+					{
+						"text": {
+							"type": "plain_text",
+							"text": "*this is plain_text text*",
+							"emoji": true
+						},
+						"value": "value-0"
+					},
+					{
+						"text": {
+							"type": "plain_text",
+							"text": "*this is plain_text text*",
+							"emoji": true
+						},
+						"value": "value-1"
+					},
+					{
+						"text": {
+							"type": "plain_text",
+							"text": "*this is plain_text text*",
+							"emoji": true
+						},
+						"value": "value-2"
+					}
+				],
+				"action_id": "radio_buttons-action"
+			}
+		}
+	]
+}
