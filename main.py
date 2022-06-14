@@ -2,58 +2,14 @@ import json, os
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from flask import Flask, Response, request
+from Hooks.auxiliar import sendMessage, formRadioButton, getChannelId, formPoll, setResponse
 
-
-app = Flask(__name__, template_folder='')
+app = Flask(__name__)
 
 # Set the token from the secret environment variables.
-slack_client = WebClient(token="xoxb-14279150613-3581635289973-iX250ygE4ZzmuL1A8aBXXuew")
+slack_client = WebClient(token="xoxp-14279150613-1574393538467-3594105457830-cbc9607d1c585c45ff41e69d2bfda578")
 #print(os.environ.get('SLACK_TOKEN') or "IbqJ6vQOe9lPT1zwwuWzcTjf")
 
-def getChannelId(channel_name):
-    try:
-        result = slack_client.usergroups_list()
-        print(result)
-    except SlackApiError as e:
-        print(f"Error: {e}")
-        return False
-
-
-def sendMessage(msg, blocks, channel):
-    # ID of channel you want to post message to
-
-    try:
-        # Call the conversations.list method using the WebClient
-        result = slack_client.chat_postMessage(
-            channel=channel,
-            text=msg,
-            blocks= blocks["blocks"] if blocks is not None else None
-            # You could also use a blocks[] array to send richer content
-        )
-        # Print result, which includes information about the message (like TS)
-        return Response("Data sended", 200)
-
-    except SlackApiError as e:
-        print(e)
-        return Response("Data can't be send", 403)
-
-def formRadioButton(msg, channel, options):
-    formTemplate = open('templates/radioButton.json')
-    jsonTemplate = json.load(formTemplate)
-    jsonTemplate["blocks"][0]["text"]["text"] = msg
-    listOption = []
-    for option in options:
-        listOption.append({
-						"text": {
-							"type": option["type"] if "type" in option else "plain_text",
-							"text": option["text"],
-							"emoji": True
-						},
-						"value": option["value"] if "value" in option else option["text"]
-					})
-    jsonTemplate["blocks"][0]["accessory"]["options"] = listOption
-    print(jsonTemplate)
-    return sendMessage(msg, jsonTemplate, channel)
 
 @app.route('/author', methods=['GET'])
 def author():
@@ -65,7 +21,7 @@ def sendText():
     if("message" in data):
         if("channel" in data):
             channel = data["channel"] if "channel" in data else None
-            return sendMessage(data["message"], None, channel)
+            return sendMessage(slack_client, data["message"], None, channel)
         else:
             return Response("channel is missing", 403)
     else:
@@ -77,7 +33,21 @@ def sendQuestionRadioButtons():
     if("message" in data):
         if("channel" in data):
             if("options" in data):
-                return formRadioButton(data["message"], data["channel"], data["options"])
+                return formRadioButton(slack_client, data["message"], data["channel"], data["options"])
+            else:
+                return Response("options is missing", 403)
+        else:
+            return Response("channel is missing", 403)
+    else:
+        return Response("message is missing", 403)
+
+@app.route('/send/poll', methods=['POST'])
+def sendQuestionPoll():
+    data = json.loads(request.data)
+    if("message" in data):
+        if("channel" in data):
+            if("options" in data):
+                return formPoll(slack_client, data["message"], data["channel"], data["options"])
             else:
                 return Response("options is missing", 403)
         else:
@@ -92,7 +62,7 @@ def getMessageChannel():
         channel_name = data["channel"]
         conversation_id = None
         try:
-            getChannelId(channel_name)
+            getChannelId(slack_client, channel_name)
             result = slack_client.conversations_history(channel=channel_name)
 
             return Response(result["messages"])
@@ -101,8 +71,15 @@ def getMessageChannel():
     else:
         return Response("channel is missing", 403)
 
+@app.route('/response/poll', methods=['POST'])
+def responsePoll():
+    data = request.form.to_dict()
+    res = setResponse(data)
+    # print(res)
+    return Response(res)
+
 @app.route('/', methods=['GET', 'POST'])
-def main():
+def sayHello():
     return Response("To get started, remix this project and check out the README file!")
 
 

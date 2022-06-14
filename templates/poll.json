@@ -1,0 +1,14 @@
+{
+	"blocks": [
+		{
+			"type": "section",
+			"text": {
+				"type": "mrkdwn",
+				"text": "*Where should we order lunch from?* Poll by <fakeLink.toUser.com|Mark>"
+			}
+		},
+		{
+			"type": "divider"
+		}
+	]
+}
