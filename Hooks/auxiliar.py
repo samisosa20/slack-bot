@@ -1,7 +1,7 @@
 import json
 import requests
 from slack_sdk.errors import SlackApiError
-from flask import Response
+from flask import Response, jsonify, make_response
 
 numbers = [":zero:", ":one:", ":two:", ":three:", ":four:", ":five:", ":six:", ":seven:", ":eight:", ":nine:"]
 
@@ -27,7 +27,21 @@ def sendMessage(slack_client, msg, blocks, channel):
             # You could also use a blocks[] array to send richer content
         )
         # Print result, which includes information about the message (like TS)
-        return Response("Data sended", 200)
+        print(result["ts"])
+        response = {
+            "ts": result["ts"],
+            "idChannel": result["channel"],
+            "nameChannel": channel,
+            "title": result["message"]["text"]
+        }
+        with open('store/message.json') as f:
+            jsonMessageStore = json.load(f)
+        
+        jsonMessageStore["data"].append(response)
+
+        with open('store/message.json', 'w') as f:
+            f.write(json.dumps(jsonMessageStore))
+        return make_response(jsonify(response), 200)
 
     except SlackApiError as e:
         print(e)
@@ -92,27 +106,32 @@ def setResponse(data):
     if (len(auxBlock) > blockId_index + 1):
         # If the block exited
         if ("elements" in auxBlock[blockId_index + 1]):
-            userName_index = next((index for (index, d) in enumerate(
-                auxBlock[blockId_index + 1]["elements"]) if d["text"] == "<@{}>,".format(resultUserName["id"])), None)
-            if (userName_index == None):
+            listUser = auxBlock[blockId_index + 1]["elements"][0]["text"].split(",")
+            # if the user don't exist
+            if (auxBlock[blockId_index + 1]["elements"][0]["text"].find("<@{}>".format(resultUserName["id"])) == -1):
                 originalText = auxBlock[blockId_index]["text"]["text"].split("`")
                 counter = int(originalText[1]) + 1
-                auxBlock[blockId_index]["text"]["text"] = "{} `{}`".format(originalText[0], counter)
-                auxBlock[blockId_index + 1]["elements"].append({
-                    "type": "mrkdwn",
-                    "text": "<@{}>,".format(resultUserName["id"]),
-                })
+                """ auxBlock.pop(blockId_index + 1)
+                auxBlock[blockId_index]["text"]["text"] = "{}".format(originalText[0]) """
+                auxBlock[blockId_index]["text"]["text"] = "{} `{}`".format(originalText[0].strip(), counter)
+                auxBlock[blockId_index + 1]["elements"][0]["text"] = "{},<@{}>".format(auxBlock[blockId_index + 1]["elements"][0]["text"], resultUserName["id"]) 
             else:
-                # Delete user
-                if (userName_index == 0 and len(auxBlock[blockId_index + 1]["elements"]) == 1):
+                # Delete user and block if there is one user
+                if (len(auxBlock[blockId_index + 1]["elements"][0]["text"]) == 1):
                     originalText = auxBlock[blockId_index]["text"]["text"].split("`")
-                    auxBlock[blockId_index]["text"]["text"] = "{}".format(originalText[0])
+                    auxBlock[blockId_index]["text"]["text"] = "{}".format(originalText[0].strip())
                     auxBlock.pop(blockId_index + 1)
                 else:
                     originalText = auxBlock[blockId_index]["text"]["text"].split("`")
                     counter = int(originalText[1]) - 1
-                    auxBlock[blockId_index]["text"]["text"] = "{} `{}`".format(originalText[0], counter)
-                    auxBlock[blockId_index + 1]["elements"].pop(userName_index)
+                    listUserFilter = list(filter(lambda x: x != "<@{}>".format(resultUserName["id"]), listUser))
+                    if (len(listUserFilter) > 0):
+                        auxBlock[blockId_index]["text"]["text"] = "{} `{}`".format(originalText[0].strip(), counter)
+                        auxBlock[blockId_index + 1]["elements"][0]["text"] = ",".join(listUserFilter)
+                    else:
+                        auxBlock[blockId_index]["text"]["text"] = "{}".format(originalText[0].strip())
+                        auxBlock.pop(blockId_index + 1)
+
         else:
             originalText = auxBlock[blockId_index]["text"]["text"].split("`")
             if (len(originalText) > 1):
@@ -125,7 +144,7 @@ def setResponse(data):
                 "elements": [
                         {
                             "type": "mrkdwn",
-                            "text": "<@{}>,".format(resultUserName["id"]),
+                            "text": "<@{}>".format(resultUserName["id"]),
                         },
                 ]
             })
@@ -141,10 +160,10 @@ def setResponse(data):
         "elements": [
                 {
                     "type": "mrkdwn",
-                    "text": "<@{}>,".format(resultUserName["id"]),
+                    "text": "<@{}>".format(resultUserName["id"]),
                 },
-        ]
-    })
+            ]
+        })
 
     dataSendJson = {"blocks": auxBlock}
     return requests.post(response_url, json=dataSendJson)
